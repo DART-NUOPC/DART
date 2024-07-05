@@ -1,17 +1,21 @@
 application:
-  link_packages: OpenMP
+  #link_packages: OpenMP
+  link_libraries: piof
+  disable_comps: ESMX_Data
 
 components:
 
-  Lumo:
+  datm:
 
-  tawas:
-    source_dir: TaWaS
-    install_prefix: TaWaS
+    build_type: none
+    install_prefix: /glade/u/home/anhlpham/CDEPS/install
+    libraries: datm dshr streams cdeps_share
+    fort_module: cdeps_datm_comp.mod
 
   dart:
     build_type: script
     build_script: quickbuild.sh
-    source_dir: DART/models/cdeps/work
-    install_prefix: DART/models/cdeps/work
+    source_dir: /glade/u/home/anhlpham/NUOPC_DART-code-development/DART/models/cdeps/work
+    install_prefix: /glade/u/home/anhlpham/NUOPC_DART-code-development/DART/models/cdeps/work
+    fort_module: dart_comp_nuopc.mod
 
