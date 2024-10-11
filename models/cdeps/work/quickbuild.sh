@@ -11,7 +11,7 @@ source "$DART"/build_templates/buildfunctions.sh
 
 MODEL=cdeps
 LOCATION=threed_sphere
-EXTRA=/home/dev/examples/nuopc-app-prototypes-8.6.1/ESMX_DartOcnProto/NUOPC_DART-code-development
+# EXTRA=/home/dev/examples/nuopc-app-prototypes-8.6.1/ESMX_DartOcnProto/NUOPC_DART-code-development
 
 # quickbuild arguments
 arguments "$@"
@@ -25,7 +25,12 @@ cdl_to_netcdf
 # build and run preprocess before making any other DART executables
 buildpreprocess
 
-# build 
+# Compile dart_comp_nuopc module
+# gfortran -c $DART/nuopc_dart.F90 
+
+
+
+# build
 
 dartbuildlib libdart.a
 

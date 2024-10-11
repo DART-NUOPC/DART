@@ -1,0 +1,122 @@
+    module dart_state_update
+    use ESMF
+
+    implicit none
+
+    type(ESMF_MeshLoc)  :: meshloc
+    
+    public meshloc
+    !public dart_importStateUpdate
+
+    contains
+
+    !The subroutine handles different intents (import or export) and uses pointers to 
+    !update the data efficiently.
+    !
+    subroutine DART_StateUpdate2(dgcomp, state, name, farray, kwe, rc)
+
+        type(ESMF_GridComp), intent(inout)                :: dgcomp
+        type(ESMF_State), intent(inout)                   :: state
+        character(len=*), intent(in)                      :: name
+        real(ESMF_KIND_R8),  intent(inout), target        :: farray(:,:)
+        type(ESMF_KeywordEnforcer), intent(in), optional  :: kwe
+        type(type_InternalStateWrapper)                   :: isPtr
+        !real(ESMF_KIND_R8), pointer                       :: isPtr ! Pointer to Internal state
+        ! isPtr is a pointer to an internal state structure, that contains information
+        ! about the nodes owned by the current process or element in a parallel computing
+        ! environment.
+        
+        integer(ESMF_KIND_I4), intent(out)                :: rc
+
+        type(ESMF_Field)                                  :: field
+        real(ESMF_KIND_R8), pointer                       :: farrayPtr1(:) => null() ! Field data pointer
+        ! a pointer to a one-dimensional array representing data in an ESMF field. This
+        ! array holds the data that needs to be updated or read.
+
+        integer(ESMF_KIND_I4)                             :: ip
+        character(len=ESMF_MAXSTR)                        :: message
+        logical                                           :: isPresent
+        type(ESMF_StateIntent_Flag)                       :: intent
+        type(ESMF_StateItem_Flag)                         :: itemType
+
+        
+        rc = ESMF_SUCCESS
+
+        call ESMF_GridCompGetInternalState(dgcomp, isPtr, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return ! bail out
+
+        if (ubound(farray,1) - lbound(farray,1) > 0) then 
+            write(message,'(A)') '--- DART_StateUpdate2 skipped non-degenerate '//trim(name)
+            call ESMF_LogWrite(trim(message), ESMF_LOGMSG_WARNING)
+            return
+        endif 
+
+        call ESMF_StateGet(state, itemname=trim(name), itemType=itemType, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return ! bail out
+
+        if (itemType /= ESMF_STATEITEM_FIELD) then 
+            write(message,'(A)') '--- DART_StateUpdate2 skipped non-field '//trim(name)
+            call ESMF_LogWrite(trim(message), ESMF_LOGMSG_WARNING)
+            return
+        endif 
+
+        call ESMF_StateGet(state, itemname=trim(name), field=field, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return ! bail out
+
+        !Gets a pointer to the data array inside the field, allowing direct access to the field's data.
+        call ESMF_FieldGet(field, farrayPtr=farrayPtr1, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return ! bail out
+
+
+        !Checks if a halo handle (used for parallel data exchange) is present
+        isPresent = ESMF_RouteHandleIsCreated(isPtr%haloHandle, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return ! bail out
+
+        !Retrieves the intent (import or export) of the state.
+        call ESMF_StateGet(state, stateintent=intent, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return ! bail out
+
+        if (intent == ESMF_STATEINTENT_IMPORT) then 
+
+            if (isPresent) then 
+            call ESMF_FieldHalo(field, routehandle=isPtr%haloHandle, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return ! bail out
+            endif    
+
+            do ip = 1, isPtr%numOwnedNodes
+            farray(1,isPtr%ownedNodeIds(ip)) = farrayPtr1(ip) + 1
+            end do
+
+            write(message,'(A)') '--- DART_StateUpdate2 imported '//trim(name)
+            call ESMF_LogWrite(trim(message), ESMF_LOGMSG_INFO)
+
+
+        else 
+            write(message,'(A)') '--- DART_StateUpdate2 skipped unspecified intent'
+            call ESMF_LogWrite(trim(message), ESMF_LOGMSG_WARNING)
+        endif    
+
+    end subroutine DART_StateUpdate2
+
+    end module
