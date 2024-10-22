@@ -103,7 +103,7 @@ public :: get_model_size,         &
           model_interpolate,      &
           end_model,              &
           static_init_model,      &
-          nc_write_model_atts,    &
+         !  nc_write_model_atts,    &
           get_close_obs,          &
           get_close_state,        &
           pert_model_copies,      &
@@ -261,11 +261,15 @@ end subroutine static_init_model
 
 !------------------------------------------------------------------
 ! Returns the number of items in the state vector as an integer. 
-function get_model_size()
+function get_model_size(dgcomp, rc)
 
 integer(i8) :: get_model_size
+type(ESMF_GridComp)  :: dgcomp
+integer, intent(out) :: rc
 
-if ( .not. module_initialized ) call static_init_model
+rc = ESMF_SUCCESS
+
+if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
 
 get_model_size = get_domain_size(dom_id)
 
@@ -286,9 +290,10 @@ end function get_model_size
 ! 0 unless there is some problem in computing the interpolation in
 ! which case a positive istatus should be returned.
 
-subroutine model_interpolate(state_handle, ens_size, location, qty, expected_obs, istatus)
+subroutine model_interpolate(dgcomp, rc, state_handle, ens_size, location, qty, expected_obs, istatus)
 
-
+type(ESMF_GridComp)  :: dgcomp
+integer, intent(out) :: rc
 type(ensemble_type), intent(in) :: state_handle
 integer,             intent(in) :: ens_size
 type(location_type), intent(in) :: location
@@ -308,7 +313,9 @@ integer(i8) :: th_indx, indx(ens_size)
 real(r8) :: depth_at_x(ens_size), thick_at_x(ens_size) ! depth, layer thickness at obs lat lon
 logical :: found(ens_size)
 
-if ( .not. module_initialized ) call static_init_model
+rc = ESMF_SUCCESS
+
+if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
 
 expected_obs(:) = MISSING_R8
 istatus(:) = 1
@@ -466,11 +473,15 @@ end subroutine model_interpolate
 ! of advancing the state in a given implementation, or the shortest
 ! time you want the model to advance between assimilations.
 
-function shortest_time_between_assimilations()
+function shortest_time_between_assimilations(dgcomp, rc)
 
-type(time_type) :: shortest_time_between_assimilations
+type(time_type)     :: shortest_time_between_assimilations
+type(ESMF_GridComp) :: dgcomp
+integer, intent(out) :: rc
 
-if ( .not. module_initialized ) call static_init_model
+rc = ESMF_SUCCESS
+
+if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
 
 shortest_time_between_assimilations = assimilation_time_step
 
@@ -482,16 +493,20 @@ end function shortest_time_between_assimilations
 ! Given an integer index into the state vector, returns the
 ! associated location and optionally the physical quantity.
 
-subroutine get_state_meta_data(index_in, location, qty)
+subroutine get_state_meta_data(dgcomp, rc, index_in, location, qty)
 
-integer(i8),         intent(in)  :: index_in
-type(location_type), intent(out) :: location
+type(ESMF_GridComp)                        :: dgcomp
+integer, intent(out)                       :: rc
+integer(i8),         intent(in)            :: index_in
+type(location_type), intent(out)           :: location
 integer,             intent(out), optional :: qty
 
 real(r8) :: lat, lon
 integer :: lon_index, lat_index, level, local_qty
 
-if ( .not. module_initialized ) call static_init_model
+rc = ESMF_SUCCESS
+
+if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
 
 call get_model_variable_indices(index_in, lon_index, lat_index, level, kind_index=local_qty)
 
@@ -635,28 +650,28 @@ end subroutine end_model
 !------------------------------------------------------------------
 ! write any additional attributes to the output and diagnostic files
 
-subroutine nc_write_model_atts(ncid, domain_id)
+! subroutine nc_write_model_atts(ncid, domain_id)
 
-integer, intent(in) :: ncid      ! netCDF file identifier
-integer, intent(in) :: domain_id
+! integer, intent(in) :: ncid      ! netCDF file identifier
+! integer, intent(in) :: domain_id
 
-if ( .not. module_initialized ) call static_init_model
+! if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
 
-! put file into define mode.
+! ! put file into define mode.
 
-call nc_begin_define_mode(ncid)
+! call nc_begin_define_mode(ncid)
 
-call nc_add_global_creation_time(ncid)
+! call nc_add_global_creation_time(ncid)
 
-call nc_add_global_attribute(ncid, "model_source", source )
-call nc_add_global_attribute(ncid, "model", "MOM6")
+! call nc_add_global_attribute(ncid, "model_source", source )
+! call nc_add_global_attribute(ncid, "model", "MOM6")
 
-call nc_end_define_mode(ncid)
+! call nc_end_define_mode(ncid)
 
-! Flush the buffer and leave netCDF file open
-call nc_synchronize_file(ncid)
+! ! Flush the buffer and leave netCDF file open
+! call nc_synchronize_file(ncid)
 
-end subroutine nc_write_model_atts
+! end subroutine nc_write_model_atts
 
 !------------------------------------------------------------
 ! Read lon, lat for T,U,V grids from mom6 static file
@@ -725,7 +740,7 @@ end do
 
 ! retrieve the Fortran data pointer from the Field and bounds
 ! Suman: I have doubt in computationalbound and exclusive bound.
-call ESMF_FieldGet(field=field, grid=grid, localDe=0, farrayPtr=sst_field, &
+call ESMF_FieldGet(field=field, localDe=0, farrayPtr=sst_field, &
    computationalLBound=compLBnd, computationalUBound=compUBnd, &
    exclusiveLBound=exclLBnd, exclusiveUBound=exclUBnd, &
    rc=rc)
@@ -831,24 +846,24 @@ rc = ESMF_SUCCESS
 
 
 call NUOPC_ModelGet(dgcomp, exportState=exportState, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
 
 
 call ESMF_StateGet(exportState, itemName="So_t", field=field, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
 
 ! retrieve the Fortran data pointer from the Field and bounds
-call ESMF_FieldGet(field=field, grid=grid, localDe=0, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+call ESMF_FieldGet(field=field, localDe=0, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
 
 ! Step 2: Get the bounds of the vertical dimension (assuming 3D grid), if it's 2d give an error message
 ! compLBnd and compUBnd are arrays of bounds for each dimension
@@ -899,7 +914,7 @@ integer                     :: i, j, nx, ny
 type(ESMF_Grid)             :: grid
 type(ESMF_Field)            :: field
 real(ESMF_KIND_R8), pointer :: basin_depth(:,:)
-real(ESMF_KIND_R8), pointer :: mask2D
+real(ESMF_KIND_R8), pointer :: mask2D(:,:)
 character(len=*), parameter :: routine = 'read_ocean_geometry'
 integer                     :: compLBnd(2), compUBnd(2)  ! Computational bounds
 
@@ -909,42 +924,44 @@ rc = ESMF_SUCCESS
 
 
 call NUOPC_ModelGet(dgcomp, exportState=exportState, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
 
 
 call ESMF_StateGet(exportState, itemName="basin_depth", field=field, rc=rc)
-! if (ESMF_logFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+if (ESMF_logFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
 
 ! retrieve the Fortran data pointer from the Field and bounds
-call ESMF_FieldGet(field=field, grid=grid, localDe=0, farrayPtr=basin_depth, &
+call ESMF_FieldGet(field=field, localDe=0, farrayPtr=basin_depth, &
                      computationalLBound=compLBnd, computationalUBound=compUBnd, rc=rc)
-! if (ESMF_logFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+if (ESMF_logFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
+
+allocate(mask2D(compLBnd(1):compUBnd(1), compLBnd(2):compUBnd(2)))
 
 call ESMF_GridGetItem(grid, localDE=0, staggerloc=ESMF_STAGGERLOC_CENTER, &
       itemflag=ESMF_GRIDITEM_MASK, farrayPtr=mask2D, rc=rc)
-! if (ESMF_logFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+if (ESMF_logFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
 
-! Now you can access mask2D as a regular Fortran array
-do i = 1, size(mask2D, 1)
-   do j = 1, size(mask2D, 2)
+! ! Now you can access mask2D as a regular Fortran array
+! do i = 1, size(mask2D, 1)
+!    do j = 1, size(mask2D, 2)
 
-      if (mask2D(i,j) ==0) then
-         Print *, "Point (", i, j, ") is masked (inactive)"
-      endif
-   enddo
-enddo
+!       if (mask2D(i,j) ==0) then
+!          Print *, "Point (", i, j, ") is masked (inactive)"
+!       endif
+!    enddo
+! enddo
 
 !nx and ny are the dimensions of the data
 nx = compUBnd(1) - compLBnd(1) + 1
@@ -966,6 +983,8 @@ function on_land_quad(ilon, ilat)
 integer :: ilon(4), ilat(4) ! these are indices into lon, lat
 logical ::  on_land_quad
 
+real(r8), pointer :: mask2D(:,:) ! Add declaration for mask2D
+
 if ( mask2D(ilon(1), ilat(1)) + &
      mask2D(ilon(1), ilat(2)) + &
      mask2D(ilon(2), ilat(1)) + &
@@ -982,6 +1001,8 @@ function on_land_point(ilon, ilat)
 
 integer :: ilon, ilat ! these are indices into lon, lat
 logical :: on_land_point
+
+real(r8), pointer :: mask2D(:,:) ! Add declaration for mask2D
 
 if ( mask2D(ilon, ilat) + &
      mask2D(ilon, ilat) + &
@@ -1182,8 +1203,10 @@ logical,           intent(out) :: update_var(:) ! logical update
 integer :: nrows, i
 character(len=NF90_MAX_NAME) :: varname, dartstr, update
 character(len=256) :: string1, string2
+type(ESMF_GridComp)  :: dgcomp
+rc = ESMF_SUCCESS
 
-if ( .not. module_initialized ) call static_init_model
+if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
 
 nrows = size(table,1)
 
