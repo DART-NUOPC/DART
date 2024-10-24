@@ -54,38 +54,46 @@ module dart_comp_nuopc
     contains
     !------------------------------------------------
 
+    !> \brief This subroutine sets the services for a given ESMF_GridComp object.
+    !!> 
+    !!> \param[in] dgcomp The ESMF_GridComp object for which the services are being set.
+    !!> \param[out] rc The return code indicating the success or failure of the subroutine.
+    !!> 
+    !!> This subroutine sets the services for a given ESMF_GridComp object. It derives from NUOPC_Model, 
+    !!> sets the model clock to the driver clock, specializes the model, and sets the necessary labels 
+    !!> and routines for advertising, modifying advertised fields, realizing accepted fields, and advancing the model.
+    !!> 
+    !!> \note The subroutine assumes that the necessary labels and routines for the specialized operations 
+    !!> (e.g., model_routine_SS, SetClock, InitializeAdvertise, ModifyAdvertise, RealizeAccepted, ModelAdvance) 
+    !!> have been defined and implemented elsewhere.
+    !!> 
+    !!> \return None.
     subroutine SetServices(dgcomp, rc)
-        ! In Fortran, you declare a variable of the derived type and then set its attributes.
         type(ESMF_GridComp)  :: dgcomp
         integer, intent(out) :: rc
-
-        ! here goes all the local variables
         character(len=*), parameter  :: subname='(DART_cap:SetServices)'
 
         rc = ESMF_SUCCESS
 
         call ESMF_LogWrite(subname//' called', ESMF_LOGMSG_INFO)
 
-        ! derive from NUOPC_Model 
         call NUOPC_CompDerive(dgcomp, model_routine_SS, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__))&
-            return ! bail out
+            return
 
-        ! set the model clock to driver clock 
         call NUOPC_CompSpecialize(dgcomp, specLabel=model_label_SetClock, &
           specRoutine=SetClock, rc=rc)
-        if (ChkErr(rc, __LINE__, u_FILE_u)) return 
-         
+        if (ChkErr(rc, __LINE__, u_FILE_u)) return
 
-        ! specialize the model
+
         call NUOPC_CompSpecialize(dgcomp, specLabel=model_label_Advertise, &
           specRoutine=InitializeAdvertise, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
          line=__LINE__, &
          file=__FILE__)) &
-         return ! bail out
+         return
 
         call NUOPC_CompSpecialize(dgcomp, specLabel=label_ModifyAdvertised, specRoutine=ModifyAdvertise, rc=rc)
         if (ChkErr(rc,__LINE__, u_FILE_u)) return
@@ -95,19 +103,15 @@ module dart_comp_nuopc
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
          line=__LINE__, &
          file=__FILE__)) &
-         return ! bail out
-
-        ! call NUOPC_CompSpecialize(dgcomp, specLabel=model_label_DataInitialize, &
-            ! specRoutine=UpdateFieldTimes, rc=rc)
-        ! if (ChkErr(rc, __LINE__, u_FILE_u)) return
+         return
 
         call NUOPC_CompSpecialize(dgcomp, specLabel=model_label_Advance, &
           specRoutine=ModelAdvance, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
          line=__LINE__, &
          file=__FILE__)) &
-         return ! bail out
-         
+         return
+
     end subroutine SetServices
 
 

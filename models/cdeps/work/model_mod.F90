@@ -116,6 +116,8 @@ public :: get_model_size,         &
           shortest_time_between_assimilations, &
           write_model_time
 
+type(ESMF_GridComp) :: dgcomp
+
 
 
 
@@ -200,10 +202,10 @@ contains
  
 
 
-subroutine static_init_model(dgcomp, rc)
+subroutine static_init_model(dgcomp_nuopc)
 
-type(ESMF_GridComp)  :: dgcomp
-integer, intent(out) :: rc
+type(ESMF_GridComp)  :: dgcomp_nuopc
+! integer, intent(out) :: rc
 integer  :: iunit, io
 character(len=vtablenamelength) :: variable_table(MAX_STATE_VARIABLES, NUM_STATE_TABLE_COLUMNS)
 
@@ -215,6 +217,8 @@ integer, parameter :: VAR_NAME_INDEX = 1
 integer, parameter :: VAR_QTY_INDEX = 2
 integer, parameter :: VAR_UPDATE_INDEX = 3
 character(len=*),parameter :: subname='(static_init_model)'
+
+dgcomp = dgcomp_nuopc
 
 
 ! Suman: we can create one namelist for the cdeps model
@@ -239,7 +243,11 @@ assimilation_time_step = set_time(assimilation_period_seconds, &
 
 ! verify that the model_state_variables namelist was filled in correctly.
 ! returns variable_table which has variable names, kinds and update strings.
-call verify_state_variables(model_state_variables, nfields, variable_table, state_qty_list, update_var_list)
+! call verify_state_variables(model_state_variables, nfields, variable_table, state_qty_list, update_var_list)
+! Suman: varify_state variables is not defined in this code
+
+
+
 
 ! Define which variables are in the model state
 dom_id = add_domain(template_file, nfields, &
@@ -249,11 +257,11 @@ dom_id = add_domain(template_file, nfields, &
 
 model_size = get_domain_size(dom_id)  !Suman: Why didn't you use get_model_size() fuction here? 
 
-call read_horizontal_esmf_grid(dgcomp, rc)
+call read_horizontal_esmf_grid()
 call setup_interpolation()
 
-call read_num_layers(dgcomp, rc)
-call read_ocean_geometry(dgcomp, rc) ! ocean vs. land and basin depth
+call read_num_layers()
+call read_ocean_geometry() ! ocean vs. land and basin depth
 
 end subroutine static_init_model
 
@@ -261,15 +269,15 @@ end subroutine static_init_model
 
 !------------------------------------------------------------------
 ! Returns the number of items in the state vector as an integer. 
-function get_model_size(dgcomp, rc)
+function get_model_size()
 
 integer(i8) :: get_model_size
-type(ESMF_GridComp)  :: dgcomp
-integer, intent(out) :: rc
+! type(ESMF_GridComp)  :: dgcomp
+! integer, intent(out) :: rc
 
-rc = ESMF_SUCCESS
+! rc = ESMF_SUCCESS
 
-if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
+! if ( .not. module_initialized ) call static_init_model(dgcomp)
 
 get_model_size = get_domain_size(dom_id)
 
@@ -290,10 +298,10 @@ end function get_model_size
 ! 0 unless there is some problem in computing the interpolation in
 ! which case a positive istatus should be returned.
 
-subroutine model_interpolate(dgcomp, rc, state_handle, ens_size, location, qty, expected_obs, istatus)
+subroutine model_interpolate(state_handle, ens_size, location, qty, expected_obs, istatus)
 
-type(ESMF_GridComp)  :: dgcomp
-integer, intent(out) :: rc
+! type(ESMF_GridComp)  :: dgcomp
+! integer, intent(out) :: rc
 type(ensemble_type), intent(in) :: state_handle
 integer,             intent(in) :: ens_size
 type(location_type), intent(in) :: location
@@ -313,9 +321,9 @@ integer(i8) :: th_indx, indx(ens_size)
 real(r8) :: depth_at_x(ens_size), thick_at_x(ens_size) ! depth, layer thickness at obs lat lon
 logical :: found(ens_size)
 
-rc = ESMF_SUCCESS
+! rc = ESMF_SUCCESS
 
-if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
+! if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
 
 expected_obs(:) = MISSING_R8
 istatus(:) = 1
@@ -473,15 +481,15 @@ end subroutine model_interpolate
 ! of advancing the state in a given implementation, or the shortest
 ! time you want the model to advance between assimilations.
 
-function shortest_time_between_assimilations(dgcomp, rc)
+function shortest_time_between_assimilations()
 
 type(time_type)     :: shortest_time_between_assimilations
-type(ESMF_GridComp) :: dgcomp
-integer, intent(out) :: rc
+! type(ESMF_GridComp) :: dgcomp
+! integer, intent(out) :: rc
 
-rc = ESMF_SUCCESS
+! rc = ESMF_SUCCESS
 
-if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
+! if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
 
 shortest_time_between_assimilations = assimilation_time_step
 
@@ -493,10 +501,10 @@ end function shortest_time_between_assimilations
 ! Given an integer index into the state vector, returns the
 ! associated location and optionally the physical quantity.
 
-subroutine get_state_meta_data(dgcomp, rc, index_in, location, qty)
+subroutine get_state_meta_data(index_in, location, qty)
 
-type(ESMF_GridComp)                        :: dgcomp
-integer, intent(out)                       :: rc
+! type(ESMF_GridComp)                        :: dgcomp
+! integer, intent(out)                       :: rc
 integer(i8),         intent(in)            :: index_in
 type(location_type), intent(out)           :: location
 integer,             intent(out), optional :: qty
@@ -504,9 +512,9 @@ integer,             intent(out), optional :: qty
 real(r8) :: lat, lon
 integer :: lon_index, lat_index, level, local_qty
 
-rc = ESMF_SUCCESS
+! rc = ESMF_SUCCESS
 
-if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
+! if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
 
 call get_model_variable_indices(index_in, lon_index, lat_index, level, kind_index=local_qty)
 
@@ -675,14 +683,14 @@ end subroutine end_model
 
 !------------------------------------------------------------
 ! Read lon, lat for T,U,V grids from mom6 static file
-subroutine read_horizontal_esmf_grid(dgcomp, rc)
+subroutine read_horizontal_esmf_grid()
 
 
 character(len=*), parameter :: routine = 'read_horizontal_esmf_grid'
 
 ! input/output variable
-type(ESMF_GridComp)         :: dgcomp
-integer, intent(out)        :: rc
+! type(ESMF_GridComp)         :: dgcomp
+integer                       :: rc
 
 ! local variables
 integer                             :: itemCount
@@ -695,12 +703,11 @@ CHARACTER(ESMF_MAXSTR), allocatable :: itemNameList(:)
 character(len=*),parameter          :: subname='(static_init_model)'
 
 type(ESMF_Field)                    :: field_lon, field_lat
-real(ESMF_KIND_R8), pointer         :: geolon(:,:), geolat(:,:)
-real(ESMF_KIND_R8), pointer         :: geolon_u(:,:), geolat_u(:,:)
-real(ESMF_KIND_R8), pointer         :: geolon_v(:,:), geolat_v(:,:)
+type(ESMF_Array)                    :: esmf_geolon, esmf_geolat, esmf_geolon_u, esmf_geolat_u, esmf_geolon_v, esmf_geolat_v
 real(ESMF_KIND_R8), pointer         :: sst_field(:,:)
 integer                             :: i, j, localDE, tileCount, dimCount
 integer                             :: compLBnd(2), compUBnd(2), exclLBnd(2), exclUBnd(2)
+real(ESMF_KIND_R8), POINTER         :: geolon(:,:), geolat(:,:), geolon_u(:,:), geolat_u(:,:), geolon_v(:,:), geolat_v(:,:)
 
 
 rc = ESMF_SUCCESS
@@ -709,19 +716,27 @@ rc = ESMF_SUCCESS
 ! and then extract the export state from it.
 
 call NUOPC_ModelGet(dgcomp, exportState=exportState, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!    line=__LINE__, &
-!    file=__FILE__)) &
-!    return ! bail out
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+   line=__LINE__, &
+   file=__FILE__)) &
+   return ! bail out
 
-if (.not. allocated(itemNameList)) allocate(itemNameList)
+
 
 ! get number of fields from the state
-call ESMF_StateGet(exportState, itemCount=itemCount, itemNameList=itemNameList, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!    line=__LINE__, &
-!    file=__FILE__)) &
-!    return ! bail out
+call ESMF_StateGet(exportState, itemCount=itemCount, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+   line=__LINE__, &
+   file=__FILE__)) &
+   return ! bail out
+
+allocate(itemNameList(itemCount))
+
+call ESMF_StateGet(exportState, itemNameList=itemNameList, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+   line=__LINE__, &
+   file=__FILE__)) &
+   return ! bail out
 
 ! loop over the field and find the sea surface temperature
 do i = 1, itemCount
@@ -729,10 +744,10 @@ do i = 1, itemCount
    call ESMF_LogWrite("Getting the field: "//trim(itemNameList(i)), rc=rc)
 
    call ESMF_StateGet(exportState, itemName=trim(itemNameList(i)), field=field, rc=rc)
-   ! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-   !    line=__LINE__, &
-   !    file=__FILE__)) &
-   !    return ! bail out
+   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return ! bail out
 
    endif
 end do
@@ -745,64 +760,80 @@ call ESMF_FieldGet(field=field, localDe=0, farrayPtr=sst_field, &
    exclusiveLBound=exclLBnd, exclusiveUBound=exclUBnd, &
    rc=rc)
 
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!    line=__LINE__, &
-!    file=__FILE__)) &
-!    return ! bail out
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+   line=__LINE__, &
+   file=__FILE__)) &
+   return ! bail out
 
-
-! Accessing grid information from the field
-call ESMF_GridGet(grid, dimCount=dimCount, tileCount=tileCount, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!    line=__LINE__, &
-!    file=__FILE__)) &
-!    return ! bail out
-
-
+! get the grid from the field
+call ESMF_GridCompGet(dgcomp, grid=grid, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+   line=__LINE__, &
+   file=__FILE__)) &
+   return ! bail out
 
 !-----------------------------------------------------------------------------------------
 ! Accessing the coordinate array for the physical position and put into an Array
-call ESMF_GridGetCoord(grid, staggerloc=ESMF_STAGGERLOC_CENTER, coordDim=1, &
-   localDE=0, array=geolon, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!    line=__LINE__, &
-!    file=__FILE__)) &
-!    return ! bail out
+call ESMF_GridGetCoord(grid, coordDim=1, staggerloc=ESMF_STAGGERLOC_CENTER, &
+   array=esmf_geolon, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+   line=__LINE__, &
+   file=__FILE__)) &
+   return ! bail out
 
-call ESMF_GridGetCoord(grid, staggerloc=ESMF_STAGGERLOC_CENTER, coordDim=2, &
-   localDE=0, array=geolat, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+call ESMF_GridGetCoord(grid, coordDim=2, staggerloc=ESMF_STAGGERLOC_CENTER, &
+   array=esmf_geolat, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
 
-call ESMF_GridGetCoord(grid, staggerloc=ESMF_STAGGERLOC_EDGE1, coordDim=1, &
-   localDE=0, array=geolon_u, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+call ESMF_GridGetCoord(grid, coordDim=1, staggerloc=ESMF_STAGGERLOC_EDGE1,  &
+   array=esmf_geolon_u, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
 
-call ESMF_GridGetCoord(grid, staggerloc=ESMF_STAGGERLOC_EDGE1, coordDim=2, &
-   localDE=0, array=geolat_u, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+call ESMF_GridGetCoord(grid, coordDim=2, staggerloc=ESMF_STAGGERLOC_EDGE1, &
+   array=esmf_geolat_u, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
 
-call ESMF_GridGetCoord(grid, staggerloc=ESMF_STAGGERLOC_EDGE2, coordDim=1, &
-   localDE=0, array=geolon_v, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+call ESMF_GridGetCoord(grid, coordDim=1, staggerloc=ESMF_STAGGERLOC_EDGE2, &
+   array=esmf_geolon_v, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
 
-call ESMF_GridGetCoord(grid, staggerloc=ESMF_STAGGERLOC_EDGE2, coordDim=2, &
-   localDE=0, array=geolat_v, rc=rc)
-! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-! line=__LINE__, &
-! file=__FILE__)) &
-! return ! bail out
+call ESMF_GridGetCoord(grid, coordDim=2, staggerloc=ESMF_STAGGERLOC_EDGE2, &
+   array=esmf_geolat_v, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
+
+!copy esmf_array data to fortran arrays
+call ESMF_ArrayGet(esmf_geolon, farrayPtr=geolon, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
+
+call ESMF_ArrayGet(esmf_geolon_u, farrayPtr=geolon_u, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
+
+call ESMF_ArrayGet(esmf_geolon_v, farrayPtr=geolon_v, rc=rc)
+if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
 
 !----------------------------------------------------------------------------------
 
@@ -824,10 +855,10 @@ end subroutine read_horizontal_esmf_grid
 
 !------------------------------------------------------------
 ! Read number of vertical layers from mom6 template file
-subroutine read_num_layers(dgcomp, rc)
+subroutine read_num_layers()
 
-type(ESMF_GridComp)                 :: dgcomp
-integer, INTENT(OUT)                :: rc
+! type(ESMF_GridComp)                 :: dgcomp
+integer                             :: rc
 type(ESMF_State)                    :: importState, exportState
 type(ESMF_Field)                    :: field
 type(ESMF_Grid)                     :: grid
@@ -858,16 +889,16 @@ line=__LINE__, &
 file=__FILE__)) &
 return ! bail out
 
-! retrieve the Fortran data pointer from the Field and bounds
-call ESMF_FieldGet(field=field, localDe=0, rc=rc)
+
+! Step 2: Get the bounds of the vertical dimension (assuming 3D grid), if it's 2d give an error message
+! compLBnd and compUBnd are arrays of bounds for each dimension
+call ESMF_GridCompGet(dgcomp, grid=grid, rc=rc)
 if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
 line=__LINE__, &
 file=__FILE__)) &
 return ! bail out
 
-! Step 2: Get the bounds of the vertical dimension (assuming 3D grid), if it's 2d give an error message
-! compLBnd and compUBnd are arrays of bounds for each dimension
-call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, &
+call ESMF_GridGet(grid, localDE=0, staggerloc=ESMF_STAGGERLOC_CENTER, &
     computationalLBound=compLBnd, computationalUBound=compUBnd, rc=rc)
 if (rc /= ESMF_SUCCESS) then
     print*, "Error getting grid bounds"
@@ -904,12 +935,12 @@ end subroutine read_num_layers
 !------------------------------------------------------------
 ! ocean_geom are 2D state sized static data
 ! HK Do these arrays become too big in high res cases?
-subroutine read_ocean_geometry(dgcomp, rc)
+subroutine read_ocean_geometry()
 
 ! variable declations
-type(ESMF_GridComp)         :: dgcomp
+! type(ESMF_GridComp)         :: dgcomp
 type(ESMF_State)            :: exportState
-integer, INTENT(OUT)        :: rc
+integer                     :: rc
 integer                     :: i, j, nx, ny
 type(ESMF_Grid)             :: grid
 type(ESMF_Field)            :: field
@@ -939,6 +970,12 @@ return ! bail out
 ! retrieve the Fortran data pointer from the Field and bounds
 call ESMF_FieldGet(field=field, localDe=0, farrayPtr=basin_depth, &
                      computationalLBound=compLBnd, computationalUBound=compUBnd, rc=rc)
+if (ESMF_logFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+line=__LINE__, &
+file=__FILE__)) &
+return ! bail out
+
+call ESMF_GridCompGet(dgcomp, grid=grid, rc=rc)
 if (ESMF_logFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
 line=__LINE__, &
 file=__FILE__)) &
@@ -1203,10 +1240,12 @@ logical,           intent(out) :: update_var(:) ! logical update
 integer :: nrows, i
 character(len=NF90_MAX_NAME) :: varname, dartstr, update
 character(len=256) :: string1, string2
-type(ESMF_GridComp)  :: dgcomp
-rc = ESMF_SUCCESS
+! type(ESMF_GridComp)  :: dgcomp
+! integer, intent(out) :: rc
 
-if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
+! rc = ESMF_SUCCESS
+
+! if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
 
 nrows = size(table,1)
 
