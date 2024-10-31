@@ -103,7 +103,7 @@ public :: get_model_size,         &
           model_interpolate,      &
           end_model,              &
           static_init_model,      &
-         !  nc_write_model_atts,    &
+          nc_write_model_atts,    &
           get_close_obs,          &
           get_close_state,        &
           pert_model_copies,      &
@@ -121,7 +121,7 @@ type(ESMF_GridComp) :: dgcomp
 
 
 
-character(len=256), parameter :: modName   = "model_mod"
+character(len=256), parameter ::  source  = "model_mod"
 ! character(len=*), parameter :: u_FILE_u = &
       !   __FILE__
 logical :: module_initialized = .false.
@@ -204,7 +204,7 @@ contains
 
 subroutine static_init_model(dgcomp_nuopc)
 
-type(ESMF_GridComp)  :: dgcomp_nuopc
+type(ESMF_GridComp), optional  :: dgcomp_nuopc
 ! integer, intent(out) :: rc
 integer  :: iunit, io
 character(len=vtablenamelength) :: variable_table(MAX_STATE_VARIABLES, NUM_STATE_TABLE_COLUMNS)
@@ -323,7 +323,7 @@ logical :: found(ens_size)
 
 ! rc = ESMF_SUCCESS
 
-! if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
+! if ( .not. module_initialized ) call static_init_model(dgcomp)
 
 expected_obs(:) = MISSING_R8
 istatus(:) = 1
@@ -489,7 +489,7 @@ type(time_type)     :: shortest_time_between_assimilations
 
 ! rc = ESMF_SUCCESS
 
-! if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
+! if ( .not. module_initialized ) call static_init_model(dgcomp)
 
 shortest_time_between_assimilations = assimilation_time_step
 
@@ -514,7 +514,7 @@ integer :: lon_index, lat_index, level, local_qty
 
 ! rc = ESMF_SUCCESS
 
-! if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
+! if ( .not. module_initialized ) call static_init_model(dgcomp)
 
 call get_model_variable_indices(index_in, lon_index, lat_index, level, kind_index=local_qty)
 
@@ -658,28 +658,28 @@ end subroutine end_model
 !------------------------------------------------------------------
 ! write any additional attributes to the output and diagnostic files
 
-! subroutine nc_write_model_atts(ncid, domain_id)
+subroutine nc_write_model_atts(ncid, domain_id)
 
-! integer, intent(in) :: ncid      ! netCDF file identifier
-! integer, intent(in) :: domain_id
+integer, intent(in) :: ncid      ! netCDF file identifier
+integer, intent(in) :: domain_id
 
-! if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
+if ( .not. module_initialized ) call static_init_model(dgcomp)
 
-! ! put file into define mode.
+! put file into define mode.
 
-! call nc_begin_define_mode(ncid)
+call nc_begin_define_mode(ncid)
 
-! call nc_add_global_creation_time(ncid)
+call nc_add_global_creation_time(ncid)
 
-! call nc_add_global_attribute(ncid, "model_source", source )
-! call nc_add_global_attribute(ncid, "model", "MOM6")
+call nc_add_global_attribute(ncid, "model_source", source )
+call nc_add_global_attribute(ncid, "model", "MOM6")
 
-! call nc_end_define_mode(ncid)
+call nc_end_define_mode(ncid)
 
-! ! Flush the buffer and leave netCDF file open
-! call nc_synchronize_file(ncid)
+! Flush the buffer and leave netCDF file open
+call nc_synchronize_file(ncid)
 
-! end subroutine nc_write_model_atts
+end subroutine nc_write_model_atts
 
 !------------------------------------------------------------
 ! Read lon, lat for T,U,V grids from mom6 static file
@@ -1245,7 +1245,7 @@ character(len=256) :: string1, string2
 
 ! rc = ESMF_SUCCESS
 
-! if ( .not. module_initialized ) call static_init_model(dgcomp, rc)
+! if ( .not. module_initialized ) call static_init_model(dgcomp)
 
 nrows = size(table,1)
 
